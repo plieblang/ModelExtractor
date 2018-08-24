@@ -176,7 +176,7 @@ BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de) {
 
 	DWORD direntriesSize = head.direntries * sizeof(direntry);
 	LARGE_INTEGER li;
-	DWORD pos = 0;
+	UINT pos = 0;
 	size_t filenameLen = strnlen_s(*filename, MAX_PATH);
 
 	li.QuadPart = head.diroffset;

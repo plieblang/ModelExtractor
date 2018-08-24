@@ -26,6 +26,6 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writePath);
 void getTextureNames(int size);
 
 BYTE *buf;
-int bufferSize;
+UINT bufferSize;
 LPSTR textureNames[MAX_TEXTURES];
 INT32 numTextures;
