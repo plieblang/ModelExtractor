@@ -1,5 +1,2 @@
 ﻿  ModelExtractor.c
-c:\users\peter\source\repos\modelextractor\modelextractor\modelextractor.c(27): warning C4090: '=': different 'const' qualifiers
-c:\users\peter\source\repos\modelextractor\modelextractor\modelextractor.c(52): warning C4090: 'function': different 'const' qualifiers
-c:\users\peter\source\repos\modelextractor\modelextractor\modelextractor.c(191): warning C4018: '>': signed/unsigned mismatch
-  ModelExtractor.vcxproj -> C:\Users\peter\source\repos\ModelExtractor\x64\Debug\ModelExtractor.exe
+  ModelExtractor.vcxproj -> C:\Users\peter\git\ModelExtractor\x64\Debug\ModelExtractor.exe

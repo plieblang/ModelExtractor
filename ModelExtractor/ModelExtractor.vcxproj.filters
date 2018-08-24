@@ -21,13 +21,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ModelExtractor.h">
-      <Filter>Resource Files</Filter>
-    </ClInclude>
-    <ClInclude Include="VPStructs.h">
-      <Filter>Resource Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="POFStructs.h">
-      <Filter>Resource Files</Filter>
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VPStructs.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

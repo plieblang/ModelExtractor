@@ -18,13 +18,15 @@ int main(int argc, char* argv[]) {
 	LPSTR readFolderPath = (LPSTR)_malloca(MAX_PATH + 1);
 	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH + 1);
 	LPSTR writeFolderPath = (LPSTR)_malloca(MAX_PATH + 1);
-	LPCSTR pofName = (LPSTR)_malloca(MAX_PATH + 1);
+	LPSTR pofName = (LPSTR)_malloca(MAX_PATH + 1);
+
+	int rv;
 
 	bufferSize = INITIAL_BUFFER_SIZE;
 	buf = (BYTE*)malloc(bufferSize);
 
 	for (int i = 0; i < MAX_TEXTURES; i++) {
-		textureNames[i] = (LPCSTR)_malloca(MAX_PATH + 1);
+		textureNames[i] = (LPSTR)_malloca(MAX_PATH + 1);
 	}
 
 	strncpy_s(readFolderPath, MAX_PATH + 1, argv[1], strnlen_s(argv[1], MAX_PATH));
@@ -59,37 +61,58 @@ int main(int argc, char* argv[]) {
 
 	}
 
-	//this should probably return the size of the file
-	int pofFileSize = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath);
-	getTextureNames(pofFileSize);
-	for (int i = 0; i < numTextures; i++) {
-		getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath);
+	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath);
+	if (!isError(rv)) {
+		getTextureNames(rv);
+		for (int i = 0; i < numTextures; i++) {
+			rv = getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath);
+			if (isError(rv)) {
+				break;
+			}
+		}
 	}
+
+	free(buf);
+	buf = NULL;
+	if (rv == FILE_NOT_FOUND) {
+		printf("Could not find a file");
+	}
+	else if (rv == CREATEFILE_ERROR) {
+		printf("Error creating a necessary file");
+	}
+	else if (rv == READFILE_ERROR) {
+		printf("Error reading a file");
+	}
+	else if (rv == WRITEFILE_ERROR) {
+		printf("Error writing the vp file");
+	}
+	else {
+		printf("Success");
+		return SUCCESS;
+	}
+	return rv;
 }
 
 //writePath is the folder where the output file should be written, w/o the filename
+//@return file size if file is found and written; error otherwise
 int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
-	int rv;
 	direntry de;
 	size_t len = strnlen_s(*readPath, MAX_PATH);
-	HANDLE readHandle, fileSearchHandle;
+	HANDLE fileSearchHandle;
 	WIN32_FIND_DATAA fileInfo;
 	char readFilePath[MAX_PATH + 1];
+	int rv;
 
 	strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
 	strcat_s(readFilePath, MAX_PATH + 1, "\\*");
 	fileSearchHandle = FindFirstFileA(readFilePath, &fileInfo);
 
-	if (isFileType(fileInfo.cFileName, "vp")) {
-		strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
-		strcat_s(readFilePath, MAX_PATH + 1, "\\");
-		strncat_s(readFilePath, MAX_PATH + 1, fileInfo.cFileName, MAX_PATH);
-		readHandle = CreateFileA(readFilePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		rv = getDirentry(readHandle, filename, &de);
-		if (rv) {
-			extractFileFromVP(readHandle, &de, writePath);
-		}
-		CloseHandle(readHandle);
+	rv = processFile(writePath, filename, readPath, &fileInfo, &de);
+	if (isError(rv)) {
+		return rv;
+	}
+	if (rv != FILE_NOT_FOUND && rv != WRONG_FILETYPE) {
+		return rv;
 	}
 
 	while (FindNextFileA(fileSearchHandle, &fileInfo)) {
@@ -97,24 +120,52 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
 			continue;
 		}
 
-		if (isFileType(fileInfo.cFileName, "vp")) {
-			strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
-			strcat_s(readFilePath, MAX_PATH + 1, "\\");
-			strncat_s(readFilePath, MAX_PATH + 1, fileInfo.cFileName, MAX_PATH);
-			readHandle = CreateFileA(readFilePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			rv = getDirentry(readHandle, filename, &de);
-			if (rv) {
-				extractFileFromVP(readHandle, &de, writePath);
-				CloseHandle(readHandle);
-				return de.size;
-			}
-			CloseHandle(readHandle);
+		rv = processFile(writePath, filename, readPath, &fileInfo, &de);
+		if (isError(rv)) {
+			return rv;
+		}
+		if (rv != FILE_NOT_FOUND && rv != WRONG_FILETYPE) {
+			return rv;
 		}
 	}
 
-	return FILE_NOT_FOUND;
+	return rv;
 }
 
+//@return file size if successful; error if failed; or WRONG_FILETYPE
+int processFile(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, WIN32_FIND_DATAA* fileInfo, direntry* de) {
+	HANDLE readHandle;
+	char readFilePath[MAX_PATH + 1];
+	size_t len = strnlen_s(*readPath, MAX_PATH);
+	int rv;
+
+	if (isFileType(fileInfo->cFileName, "vp")) {
+		strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
+		strcat_s(readFilePath, MAX_PATH + 1, "\\");
+		strncat_s(readFilePath, MAX_PATH + 1, fileInfo->cFileName, MAX_PATH);
+		readHandle = CreateFileA(readFilePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (readHandle == INVALID_HANDLE_VALUE) {
+			rv = CREATEFILE_ERROR;
+		}
+		else {
+			if (getDirentry(readHandle, filename, de)) {
+				rv = extractFileFromVP(readHandle, de, writePath);
+				CloseHandle(readHandle);
+				return rv;
+			}
+			else {
+				rv = FILE_NOT_FOUND;
+			}
+		}
+
+		CloseHandle(readHandle);
+	}
+
+	rv = WRONG_FILETYPE;
+	return rv;
+}
+
+//@return TRUE/FALSE for whether file is found
 BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de) {
 	BOOL rv;
 	DWORD numRead;
@@ -171,8 +222,27 @@ BOOL isFileType(LPCSTR filename, LPCSTR extension) {
 	return FALSE;
 }
 
+//IMPORTANT make sure to keep updated
+BOOL isError(int err) {
+	if (err == USER_ERROR) {
+		return TRUE;
+	}
+	else if (err == CREATEFILE_ERROR) {
+		return TRUE;
+	}
+	else if (err == READFILE_ERROR) {
+		return TRUE;
+	}
+	else if (err == WRITEFILE_ERROR) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+//TODO maybe change failure return value so it doesn't conflict with user error
 //TODO maybe don't read the whole file into memory at once?
 //writePath needs to be the full absolute path of the file
+//@return file size if file is found inside VP and written successfully; error otherwise
 int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	HANDLE writeHandle;
 	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH + 1);
@@ -187,6 +257,9 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	strncat_s(writeFilePath, MAX_PATH + 1, "\\", 1);
 	strncat_s(writeFilePath, MAX_PATH + 1, de->filename, strnlen_s(de->filename, 32));
 	writeHandle = CreateFileA(writeFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (writeHandle == INVALID_HANDLE_VALUE) {
+		return CREATEFILE_ERROR;
+	}
 
 	if (de->size > bufferSize) {
 		realloc(buf, de->size);
@@ -196,16 +269,20 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	if (err) {
 		err = WriteFile(writeHandle, buf, de->size, &numWritten, NULL);
 	}
+	else {
+		CloseHandle(writeHandle);
+		return READFILE_ERROR;
+	}
+
 	CloseHandle(writeHandle);
 	if (err) {
 		return de->size;
 	}
-
-	return -1;
+	else return WRITEFILE_ERROR;
 }
 
 //When this function is called, buf should contain the pof file
-//TODO figure out whether there can be multiple texture sections
+//TODO figure out whether there can be multiple texture sections in the file (probably not)
 void getTextureNames(int size) {
 	//header is 8 bytes large
 	DWORD offset = 8;
@@ -217,7 +294,7 @@ void getTextureNames(int size) {
 		memcpy_s(&section, chunkSize, buf + offset, chunkSize);
 		offset += section.length;
 	} while (section.chunk_id[0] != 'T' || section.chunk_id[1] != 'X' || section.chunk_id[2] != 'T' || section.chunk_id[3] != 'R');
-	
+
 	offset = offset - section.length + 4 + sizeof(INT32);
 	memcpy_s(&numTextures, sizeof(INT32), buf + offset, sizeof(INT32));
 	offset += sizeof(INT32);
