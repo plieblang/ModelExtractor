@@ -1,5 +1,11 @@
 #include "ModelExtractor.h"
 
+//I guess might as well make this recursive while we're at it
+//maybe put that behind a switch though to speed it up
+//also can check for the desired file at the same time
+//if can't find a file, if it's a pof file, return immediately
+//TODO convert isFileType to use pointers
+
 /*
 Read in the vp files from the given dir
 load all the direntries into memory (probably) and look for the given pof name
@@ -15,10 +21,10 @@ int main(int argc, char* argv[]) {
 		return USER_ERROR;
 	}
 
-	LPSTR readFolderPath = (LPSTR)_malloca(MAX_PATH + 1);
-	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH + 1);
-	LPSTR writeFolderPath = (LPSTR)_malloca(MAX_PATH + 1);
-	LPSTR pofName = (LPSTR)_malloca(MAX_PATH + 1);
+	LPSTR readFolderPath = (LPSTR)_malloca(MAX_PATH);
+	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH);
+	LPSTR writeFolderPath = (LPSTR)_malloca(MAX_PATH);
+	LPSTR pofName = (LPSTR)_malloca(MAX_PATH);
 
 	int rv;
 
@@ -26,10 +32,13 @@ int main(int argc, char* argv[]) {
 	buf = (BYTE*)malloc(bufferSize);
 
 	for (int i = 0; i < MAX_TEXTURES; i++) {
-		textureNames[i] = (LPSTR)_malloca(MAX_PATH + 1);
+		textureNames[i] = (LPSTR)_malloca(MAX_PATH);
+	}
+	for (int i = 0; i < MAX_VPS; i++) {
+		vpNames[i] = (LPSTR)_malloca(MAX_PATH);
 	}
 
-	strncpy_s(readFolderPath, MAX_PATH + 1, argv[1], strnlen_s(argv[1], MAX_PATH));
+	strncpy_s(readFolderPath, MAX_PATH, argv[1], strnlen_s(argv[1], MAX_PATH - 1));
 	//strip the leading ".\" that PowerShell might use
 	if (readFolderPath[0] == '.' && readFolderPath[1] == '\\') {
 		readFolderPath += 2;
@@ -41,8 +50,8 @@ int main(int argc, char* argv[]) {
 		readFolderPath[len - 1] = 0;
 	}
 
-	strncpy_s(writeFilePath, MAX_PATH + 1, argv[2], strnlen_s(argv[2], MAX_PATH));
-	strncpy_s(writeFolderPath, MAX_PATH + 1, argv[2], strnlen_s(argv[2], MAX_PATH));
+	strncpy_s(writeFilePath, MAX_PATH, argv[2], strnlen_s(argv[2], MAX_PATH - 1));
+	strncpy_s(writeFolderPath, MAX_PATH, argv[2], strnlen_s(argv[2], MAX_PATH - 1));
 
 	char *c = strrchr(writeFilePath, '\\');
 	if (c != NULL) {
@@ -51,7 +60,7 @@ int main(int argc, char* argv[]) {
 	else {
 
 	}
-	strncpy_s(pofName, MAX_PATH + 1, c, strnlen_s(c, MAX_PATH));
+	strncpy_s(pofName, MAX_PATH, c, strnlen_s(c, MAX_PATH - 1));
 
 	c = strrchr(writeFolderPath, '\\');
 	if (c != NULL) {
@@ -61,7 +70,11 @@ int main(int argc, char* argv[]) {
 
 	}
 
+	storeVPNames(&readFolderPath);
+	qsort(vpNames, numVPs, sizeof(char*), compare);
+
 	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath);
+	//TODO make sure file was found
 	if (!isError(rv)) {
 		getTextureNames(rv);
 		for (int i = 0; i < numTextures; i++) {
@@ -69,15 +82,15 @@ int main(int argc, char* argv[]) {
 			if (isError(rv)) {
 				break;
 			}
+			if (rv == FILE_NOT_FOUND) {
+				printf("Could not find %s\n", textureNames[i]);
+			}
 		}
 	}
 
 	free(buf);
 	buf = NULL;
-	if (rv == FILE_NOT_FOUND) {
-		printf("Could not find a file");
-	}
-	else if (rv == CREATEFILE_ERROR) {
+	if (rv == CREATEFILE_ERROR) {
 		printf("Error creating a necessary file");
 	}
 	else if (rv == READFILE_ERROR) {
@@ -93,26 +106,18 @@ int main(int argc, char* argv[]) {
 	return rv;
 }
 
-//writePath is the folder where the output file should be written, w/o the filename
-//@return file size if file is found and written; error otherwise
-int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
-	direntry de;
-	size_t len = strnlen_s(*readPath, MAX_PATH);
+void storeVPNames(LPSTR *readPath) {
 	HANDLE fileSearchHandle;
 	WIN32_FIND_DATAA fileInfo;
-	char readFilePath[MAX_PATH + 1];
-	int rv;
+	char readFilePath[MAX_PATH];
+	size_t len = strnlen_s(*readPath, MAX_PATH);
 
-	strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
-	strcat_s(readFilePath, MAX_PATH + 1, "\\*");
+	strncpy_s(readFilePath, MAX_PATH, *readPath, len);
+	strcat_s(readFilePath, MAX_PATH, "\\*");
 	fileSearchHandle = FindFirstFileA(readFilePath, &fileInfo);
 
-	rv = processFile(writePath, filename, readPath, &fileInfo, &de);
-	if (isError(rv)) {
-		return rv;
-	}
-	if (rv != FILE_NOT_FOUND && rv != WRONG_FILETYPE) {
-		return rv;
+	if (isFileType(fileInfo.cFileName, "vp")) {
+		strncpy_s(vpNames[numVPs++], MAX_PATH, fileInfo.cFileName, strnlen_s(fileInfo.cFileName, MAX_PATH));
 	}
 
 	while (FindNextFileA(fileSearchHandle, &fileInfo)) {
@@ -120,7 +125,20 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
 			continue;
 		}
 
-		rv = processFile(writePath, filename, readPath, &fileInfo, &de);
+		if (isFileType(fileInfo.cFileName, "vp")) {
+			strncpy_s(vpNames[numVPs++], MAX_PATH, fileInfo.cFileName, strnlen_s(fileInfo.cFileName, MAX_PATH));
+		}
+	}
+}
+
+//writePath is the folder where the output file should be written, w/o the filename
+//@return file size if file is found and written; error otherwise
+int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
+	direntry de;
+	int rv;
+
+	for (int i = 0; i < numVPs; i++) {
+		rv = processFile(writePath, filename, readPath, &vpNames[i], &de);
 		if (isError(rv)) {
 			return rv;
 		}
@@ -133,33 +151,31 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
 }
 
 //@return file size if successful; error if failed; or WRONG_FILETYPE
-int processFile(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, WIN32_FIND_DATAA* fileInfo, direntry* de) {
+int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de) {
 	HANDLE readHandle;
-	char readFilePath[MAX_PATH + 1];
+	char readFilePath[MAX_PATH];
 	size_t len = strnlen_s(*readPath, MAX_PATH);
 	int rv;
 
-	if (isFileType(fileInfo->cFileName, "vp")) {
-		strncpy_s(readFilePath, MAX_PATH + 1, *readPath, len);
-		strcat_s(readFilePath, MAX_PATH + 1, "\\");
-		strncat_s(readFilePath, MAX_PATH + 1, fileInfo->cFileName, MAX_PATH);
-		readHandle = CreateFileA(readFilePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (readHandle == INVALID_HANDLE_VALUE) {
-			rv = CREATEFILE_ERROR;
+	strncpy_s(readFilePath, MAX_PATH, *readPath, len);
+	strcat_s(readFilePath, MAX_PATH, "\\");
+	strncat_s(readFilePath, MAX_PATH, *readName, MAX_PATH - 1);
+	readHandle = CreateFileA(readFilePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (readHandle == INVALID_HANDLE_VALUE) {
+		rv = CREATEFILE_ERROR;
+	}
+	else {
+		if (getDirentry(readHandle, writeName, de)) {
+			rv = extractFileFromVP(readHandle, de, writePath);
+			CloseHandle(readHandle);
+			return rv;
 		}
 		else {
-			if (getDirentry(readHandle, filename, de)) {
-				rv = extractFileFromVP(readHandle, de, writePath);
-				CloseHandle(readHandle);
-				return rv;
-			}
-			else {
-				rv = FILE_NOT_FOUND;
-			}
+			rv = FILE_NOT_FOUND;
 		}
-
-		CloseHandle(readHandle);
 	}
+
+	CloseHandle(readHandle);
 
 	rv = WRONG_FILETYPE;
 	return rv;
@@ -222,6 +238,10 @@ BOOL isFileType(LPCSTR filename, LPCSTR extension) {
 	return FALSE;
 }
 
+int compare(const void *str1, const void *str2) {
+	return _strnicmp(str1, str2, MAX_PATH);
+}
+
 //IMPORTANT make sure to keep updated
 BOOL isError(int err) {
 	if (err == USER_ERROR) {
@@ -245,7 +265,7 @@ BOOL isError(int err) {
 //@return file size if file is found inside VP and written successfully; error otherwise
 int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	HANDLE writeHandle;
-	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH + 1);
+	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH);
 	LARGE_INTEGER li;
 	DWORD numRead, numWritten;
 	int err;
@@ -253,9 +273,9 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	li.QuadPart = de->offset;
 	SetFilePointerEx(vpHandle, li, NULL, FILE_BEGIN);
 
-	strncpy_s(writeFilePath, MAX_PATH + 1, *writeDirPath, strnlen_s(*writeDirPath, MAX_PATH + 1));
-	strncat_s(writeFilePath, MAX_PATH + 1, "\\", 1);
-	strncat_s(writeFilePath, MAX_PATH + 1, de->filename, strnlen_s(de->filename, 32));
+	strncpy_s(writeFilePath, MAX_PATH, *writeDirPath, strnlen_s(*writeDirPath, MAX_PATH));
+	strncat_s(writeFilePath, MAX_PATH, "\\", 1);
+	strncat_s(writeFilePath, MAX_PATH, de->filename, strnlen_s(de->filename, 32));
 	writeHandle = CreateFileA(writeFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (writeHandle == INVALID_HANDLE_VALUE) {
 		return CREATEFILE_ERROR;

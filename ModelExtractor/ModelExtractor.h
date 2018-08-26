@@ -7,7 +7,8 @@
 #include "POFStructs.h"
 
 #define INITIAL_BUFFER_SIZE 65536
-#define MAX_TEXTURES 32
+#define MAX_TEXTURES 16
+#define MAX_VPS 16
 //success/error defines
 #define SUCCESS 0
 #define USER_ERROR -1
@@ -17,10 +18,12 @@
 #define READFILE_ERROR 2
 #define WRITEFILE_ERROR 3
 
+void storeVPNames(LPSTR *readPath);
 int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath);
-int processFile(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, WIN32_FIND_DATAA* fileInfo, direntry* de);
+int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de);
 BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de);
 BOOL isFileType(LPCSTR filename, LPCSTR extension);
+int compare(const void *str1, const void *str2);
 BOOL isError(int err);
 int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writePath);
 void getTextureNames(int size);
@@ -29,3 +32,5 @@ BYTE *buf;
 UINT bufferSize;
 LPSTR textureNames[MAX_TEXTURES];
 INT32 numTextures;
+LPSTR vpNames[MAX_VPS];
+INT32 numVPs;
