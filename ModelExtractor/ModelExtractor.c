@@ -1,10 +1,15 @@
 #include "ModelExtractor.h"
 
-//I guess might as well make this recursive while we're at it
-//maybe put that behind a switch though to speed it up
-//also can check for the desired file at the same time
-//if can't find a file, if it's a pof file, return immediately
-//TODO convert isFileType to use pointers
+/*
+TODO folder permissions
+TODO delete file if error
+TODO search through subdirs with recursion
+maybe put behind a switch though to speed it up
+also can check for the desired file at the same time
+TODO convert isFileType to use pointers
+TODO extract files to proper fs data directories
+TODO remove limit on textures and VP files
+*/
 
 /*
 Read in the vp files from the given dir
@@ -126,6 +131,9 @@ void storeVPNames(LPSTR *readPath) {
 		}
 
 		if (isFileType(fileInfo.cFileName, "vp")) {
+			if (numVPs > MAX_VPS) {
+				printf("Only using the first 16 VP files.  Please report this so the limit can be increased.");
+			}
 			strncpy_s(vpNames[numVPs++], MAX_PATH, fileInfo.cFileName, strnlen_s(fileInfo.cFileName, MAX_PATH));
 		}
 	}
@@ -239,7 +247,7 @@ BOOL isFileType(LPCSTR filename, LPCSTR extension) {
 }
 
 int compare(const void *str1, const void *str2) {
-	return _strnicmp(str1, str2, MAX_PATH);
+	return _strnicmp(*((char**)str1), *((char**)str2), MAX_PATH);
 }
 
 //IMPORTANT make sure to keep updated
@@ -318,6 +326,10 @@ void getTextureNames(int size) {
 	offset = offset - section.length + 4 + sizeof(INT32);
 	memcpy_s(&numTextures, sizeof(INT32), buf + offset, sizeof(INT32));
 	offset += sizeof(INT32);
+
+	if (numTextures > MAX_TEXTURES) {
+		printf("Only using the first 16 textures files. Please report this so the limit can be increased.");
+	}
 
 	//each texture consists of a (string)
 	//(string) == an int specifying length of string and char[length] for the string itself
