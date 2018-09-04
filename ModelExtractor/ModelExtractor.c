@@ -36,12 +36,17 @@ int main(int argc, char* argv[]) {
 	bufferSize = INITIAL_BUFFER_SIZE;
 	buf = (BYTE*)malloc(bufferSize);
 
-	for (int i = 0; i < MAX_TEXTURES; i++) {
-		textureNames[i] = (LPSTR)_malloca(MAX_PATH);
-	}
 	for (int i = 0; i < MAX_VPS; i++) {
 		vpNames[i] = (LPSTR)_malloca(MAX_PATH);
 	}
+	/*Initialize the names of the extra texture types
+	Might want to get rid of the magic numbers*/
+	textureTypes[0] = (LPSTR)_malloca(6);
+	strncpy_s(textureTypes[0], 6, "-glow", 5);
+	textureTypes[1] = (LPSTR)_malloca(7);
+	strncpy_s(textureTypes[1], 7, "-shine", 6);
+	textureTypes[2] = (LPSTR)_malloca(7);
+	strncpy_s(textureTypes[2], 7, "-trans", 6);
 
 	strncpy_s(readFolderPath, MAX_PATH, argv[1], strnlen_s(argv[1], MAX_PATH - 1));
 	//strip the leading ".\" that PowerShell might use
@@ -78,12 +83,12 @@ int main(int argc, char* argv[]) {
 	storeVPNames(&readFolderPath);
 	qsort(vpNames, numVPs, sizeof(char*), compare);
 
-	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath);
+	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath, "models");
 	//TODO make sure file was found
 	if (!isError(rv)) {
 		getTextureNames(rv);
 		for (int i = 0; i < numTextures; i++) {
-			rv = getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath);
+			rv = getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath, "maps");
 			if (isError(rv)) {
 				break;
 			}
@@ -95,6 +100,14 @@ int main(int argc, char* argv[]) {
 
 	free(buf);
 	buf = NULL;
+	/*allocated in getTextureNames to avoid unnecessary mallocing*/
+	for (int i = 0; i < numTextures; i++) {
+		free(textureNames[i]);
+		textureNames[i] = NULL;
+	}
+	free(textureNames);
+	textureNames = NULL;
+
 	if (rv == CREATEFILE_ERROR) {
 		printf("Error creating a necessary file");
 	}
@@ -132,21 +145,22 @@ void storeVPNames(LPSTR *readPath) {
 
 		if (isFileType(fileInfo.cFileName, "vp")) {
 			if (numVPs > MAX_VPS) {
-				printf("Only using the first 16 VP files.  Please report this so the limit can be increased.");
+				printf("Only using the first 16 VP files. Please report this so the limit can be increased.");
 			}
 			strncpy_s(vpNames[numVPs++], MAX_PATH, fileInfo.cFileName, strnlen_s(fileInfo.cFileName, MAX_PATH));
 		}
 	}
 }
 
-//writePath is the folder where the output file should be written, w/o the filename
-//@return file size if file is found and written; error otherwise
-int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
+/*writePath is the folder where the output file should be written, w/o the filename
+folder is the folder inside the VP where the file should be
+@return file size if file is found and written; error otherwise*/
+int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR folder) {
 	direntry de;
 	int rv;
 
 	for (int i = 0; i < numVPs; i++) {
-		rv = processFile(writePath, filename, readPath, &vpNames[i], &de);
+		rv = processFile(writePath, filename, readPath, &vpNames[i], &de, folder);
 		if (isError(rv)) {
 			return rv;
 		}
@@ -159,7 +173,7 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath) {
 }
 
 //@return file size if successful; error if failed; or WRONG_FILETYPE
-int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de) {
+int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de, LPCSTR folder) {
 	HANDLE readHandle;
 	char readFilePath[MAX_PATH];
 	size_t len = strnlen_s(*readPath, MAX_PATH);
@@ -173,7 +187,7 @@ int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* r
 		rv = CREATEFILE_ERROR;
 	}
 	else {
-		if (getDirentry(readHandle, writeName, de)) {
+		if (getDirentry(readHandle, writeName, de, folder)) {
 			rv = extractFileFromVP(readHandle, de, writePath);
 			CloseHandle(readHandle);
 			return rv;
@@ -190,10 +204,11 @@ int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* r
 }
 
 //@return TRUE/FALSE for whether file is found
-BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de) {
+BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de, LPCSTR folder) {
 	BOOL rv;
 	DWORD numRead;
 	DWORD totalRead = 0;
+	BOOL insideFolder = FALSE;
 
 	header head;
 	rv = ReadFile(readHandle, &head, sizeof(header), &numRead, NULL);
@@ -206,29 +221,34 @@ BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de) {
 	li.QuadPart = head.diroffset;
 	SetFilePointerEx(readHandle, li, NULL, FILE_BEGIN);
 
-	do {
-		rv = ReadFile(readHandle, buf, bufferSize, &numRead, NULL);
+	if (!ReadFile(readHandle, buf, bufferSize, &numRead, NULL)) {
+		return FALSE;
+	}
 
-		if (rv) {
-			for (int i = 0; i < head.direntries; i++) {
-				if (pos + sizeof(direntry) > bufferSize) {
-					int leftover = bufferSize - pos;
-					memcpy_s(buf, leftover, buf + pos, leftover);
-					ReadFile(readHandle, buf + leftover, bufferSize - leftover, &numRead, NULL);
-					pos = 0;
-				}
-				memcpy_s(de, sizeof(direntry), buf + pos, sizeof(direntry));
-				if (de->size > 0 && !_strnicmp(*filename, de->filename, filenameLen)) {
-					return TRUE;
-				}
-				pos += sizeof(direntry);
+	for (int counter = 0; counter < head.direntries; counter++) {
+		if (pos + sizeof(direntry) > bufferSize) {
+			int leftover = bufferSize - pos;
+			memcpy_s(buf, leftover, buf + pos, leftover);
+			if (!ReadFile(readHandle, buf + leftover, bufferSize - leftover, &numRead, NULL)) {
+				break;
+			}
+			pos = 0;
+		}
+		memcpy_s(de, sizeof(direntry), buf + pos, sizeof(direntry));
+		if (de->size == 0) {
+			if (!_strnicmp(de->filename, folder, strnlen_s(folder, LONGEST_FSO_FOLDER_NAME))) {
+				insideFolder = TRUE;
+			}
+			else if (insideFolder && !_strnicmp(de->filename, "..", 2)) {
+				insideFolder = FALSE;
 			}
 		}
-		else break;
 
-		totalRead += numRead;
-		pos = 0;
-	} while (totalRead < direntriesSize);
+		if (insideFolder && de->size > 0 && !_strnicmp(*filename, de->filename, filenameLen)) {
+			return TRUE;
+		}
+		pos += sizeof(direntry);
+	}
 
 	return FALSE;
 }
@@ -290,7 +310,8 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	}
 
 	if (de->size > bufferSize) {
-		realloc(buf, de->size);
+		buf = (BYTE*)realloc(buf, de->size);
+		bufferSize = de->size;
 	}
 
 	err = ReadFile(vpHandle, buf, de->size, &numRead, NULL);
@@ -327,16 +348,25 @@ void getTextureNames(int size) {
 	memcpy_s(&numTextures, sizeof(INT32), buf + offset, sizeof(INT32));
 	offset += sizeof(INT32);
 
-	if (numTextures > MAX_TEXTURES) {
-		printf("Only using the first 16 textures files. Please report this so the limit can be increased.");
+	numTextures *= TOTAL_TEXTURE_TYPES;
+
+	textureNames = (LPSTR*)malloc(numTextures * sizeof(LPSTR*));
+	for (int i = 0; i < numTextures; i++) {
+		textureNames[i] = (LPSTR)malloc(MAX_PATH);
 	}
 
 	//each texture consists of a (string)
 	//(string) == an int specifying length of string and char[length] for the string itself
-	for (int i = 0; i < numTextures; i++) {
+	for (int i = 0; i < numTextures / TOTAL_TEXTURE_TYPES; i++) {
+		int counter = i * TOTAL_TEXTURE_TYPES;
 		memcpy_s(&textureNameLen, sizeof(INT32), buf + offset, sizeof(INT32));
 		offset += sizeof(INT32);
-		memcpy_s(textureNames[i], MAX_PATH, buf + offset, textureNameLen);
+		memcpy_s(textureNames[counter], MAX_PATH, buf + offset, textureNameLen);
+		textureNames[counter][textureNameLen] = 0;
+		for (int j = 0; j < SPECIAL_TEXTURE_TYPES; j++) {
+			strncpy_s(textureNames[counter + j], MAX_PATH, textureNames[counter], textureNameLen);
+			strncat_s(textureNames[counter + j], MAX_PATH, textureTypes[j], strnlen_s(textureTypes[j], MAX_PATH));
+		}
 		offset += textureNameLen;
 	}
 }
