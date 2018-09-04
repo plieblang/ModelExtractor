@@ -364,8 +364,8 @@ void getTextureNames(int size) {
 		memcpy_s(textureNames[counter], MAX_PATH, buf + offset, textureNameLen);
 		textureNames[counter][textureNameLen] = 0;
 		for (int j = 0; j < SPECIAL_TEXTURE_TYPES; j++) {
-			strncpy_s(textureNames[counter + j], MAX_PATH, textureNames[counter], textureNameLen);
-			strncat_s(textureNames[counter + j], MAX_PATH, textureTypes[j], strnlen_s(textureTypes[j], MAX_PATH));
+			strncpy_s(textureNames[counter + j + 1], MAX_PATH, textureNames[counter], textureNameLen);
+			strncat_s(textureNames[counter + j + 1], MAX_PATH, textureTypes[j], strnlen_s(textureTypes[j], MAX_PATH));
 		}
 		offset += textureNameLen;
 	}
