@@ -44,12 +44,12 @@ int main(int argc, char* argv[]) {
 	textureTypes[0] = "-glow";
 	textureTypes[1] = "-shine";
 	textureTypes[2] = "-trans";
-	textureTypes[4] = "-reflect";
-	textureTypes[5] = "-normal";
-	textureTypes[6] = "-height";
-	textureTypes[7] = "-ao";
-	textureTypes[8] = "-misc";
-	textureTypes[9] = "-amb";
+	textureTypes[3] = "-reflect";
+	textureTypes[4] = "-normal";
+	textureTypes[5] = "-height";
+	textureTypes[6] = "-ao";
+	textureTypes[7] = "-misc";
+	textureTypes[8] = "-amb";
 
 	strncpy_s(readFolderPath, MAX_PATH, argv[1], strnlen_s(argv[1], MAX_PATH - 1));
 	//strip the leading ".\" that PowerShell might use
