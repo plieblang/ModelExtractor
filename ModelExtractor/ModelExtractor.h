@@ -7,7 +7,8 @@
 #include "POFStructs.h"
 
 #define INITIAL_BUFFER_SIZE 65536
-#define TOTAL_TEXTURE_TYPES 4
+#define TOTAL_TEXTURE_TYPES 10
+//FIXME -1 because of the base texture?
 #define SPECIAL_TEXTURE_TYPES TOTAL_TEXTURE_TYPES - 1
 #define MAX_VPS 16
 #define LONGEST_FSO_FOLDER_NAME 6

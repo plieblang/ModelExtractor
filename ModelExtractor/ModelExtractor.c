@@ -1,13 +1,14 @@
 #include "ModelExtractor.h"
 
 /*
-TODO folder permissions
-TODO delete file if error
+TODO extract files to proper fs data directories
+TODO add extraction to folders
 TODO search through subdirs with recursion
 maybe put behind a switch though to speed it up
 also can check for the desired file at the same time
+TODO folder permissions
+TODO delete file if error
 TODO convert isFileType to use pointers
-TODO extract files to proper fs data directories
 TODO remove limit on textures and VP files
 */
 
@@ -19,7 +20,6 @@ while writing it, look for the 'TXTR' chunk
 when found, copy each filename into an array
 when done writing the pof, look for those textures in the same way as finding the pof
 */
-
 int main(int argc, char* argv[]) {
 	if (argc != 3) {
 		printf("Usage: %s <Path\\To\\InputFolder> <Path\\To\\Output.pof>", argv[0]);
@@ -39,14 +39,17 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < MAX_VPS; i++) {
 		vpNames[i] = (LPSTR)_malloca(MAX_PATH);
 	}
-	/*Initialize the names of the extra texture types
-	Might want to get rid of the magic numbers*/
-	textureTypes[0] = (LPSTR)_malloca(6);
-	strncpy_s(textureTypes[0], 6, "-glow", 5);
-	textureTypes[1] = (LPSTR)_malloca(7);
-	strncpy_s(textureTypes[1], 7, "-shine", 6);
-	textureTypes[2] = (LPSTR)_malloca(7);
-	strncpy_s(textureTypes[2], 7, "-trans", 6);
+
+	/*Initialize the names of the extra texture types*/
+	textureTypes[0] = "-glow";
+	textureTypes[1] = "-shine";
+	textureTypes[2] = "-trans";
+	textureTypes[4] = "-reflect";
+	textureTypes[5] = "-normal";
+	textureTypes[6] = "-height";
+	textureTypes[7] = "-ao";
+	textureTypes[8] = "-misc";
+	textureTypes[9] = "-amb";
 
 	strncpy_s(readFolderPath, MAX_PATH, argv[1], strnlen_s(argv[1], MAX_PATH - 1));
 	//strip the leading ".\" that PowerShell might use
