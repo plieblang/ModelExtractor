@@ -2,7 +2,7 @@
 
 /*
 TODO extract files to proper fs data directories
-TODO add extraction to folders
+TODO create root folder if it doesn't exist
 TODO search through subdirs with recursion
 maybe put behind a switch though to speed it up
 also can check for the desired file at the same time
@@ -63,23 +63,23 @@ int main(int argc, char* argv[]) {
 		readFolderPath[len - 1] = 0;
 	}
 
-	strncpy_s(writeFilePath, MAX_PATH, argv[2], strnlen_s(argv[2], MAX_PATH - 1));
-	strncpy_s(writeFolderPath, MAX_PATH, argv[2], strnlen_s(argv[2], MAX_PATH - 1));
+	GetFullPathNameA(argv[2], MAX_PATH, writeFilePath, &pofName);
+	//strncpy_s(writeFilePath, MAX_PATH, argv[2], strnlen_s(argv[2], MAX_PATH - 1));
 
-	char *c = strrchr(writeFilePath, '\\');
-	if (c != NULL) {
-		c++;
-	}
-	else {
+	//char *c = strrchr(writeFilePath, '\\');
+	//if (c != NULL) {
+	//	c++;
+	//} else {
 
-	}
-	strncpy_s(pofName, MAX_PATH, c, strnlen_s(c, MAX_PATH - 1));
+	//}
+	//strncpy_s(pofName, MAX_PATH, c, strnlen_s(c, MAX_PATH - 1));
 
-	c = strrchr(writeFolderPath, '\\');
+	strncpy_s(writeFolderPath, MAX_PATH, writeFilePath, MAX_PATH);
+	//truncate the path so it doesn't include the filename
+	char *c = strrchr(writeFolderPath, '\\');
 	if (c != NULL) {
 		*c = 0;
-	}
-	else {
+	} else {
 
 	}
 
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 	qsort(vpNames, numVPs, sizeof(char*), compare);
 
 	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath, "models");
-	//TODO make sure file was found
+	/*TODO make sure file was found*/
 	if (!isError(rv)) {
 		getTextureNames(rv);
 		for (int i = 0; i < numTextures; i++) {
@@ -156,8 +156,9 @@ void storeVPNames(LPSTR *readPath) {
 }
 
 /*writePath is the folder where the output file should be written, w/o the filename
-folder is the folder inside the VP where the file should be
-@return file size if file is found and written; error otherwise*/
+* folder is the folder inside the VP where the file should be
+* @return file size if file is found and written; error otherwise
+*/
 int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR folder) {
 	direntry de;
 	int rv;
@@ -175,7 +176,7 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR f
 	return rv;
 }
 
-//@return file size if successful; error if failed; or WRONG_FILETYPE
+/*@return file size if successful; error if failed; or WRONG_FILETYPE*/
 int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de, LPCSTR folder) {
 	HANDLE readHandle;
 	char readFilePath[MAX_PATH];
@@ -206,7 +207,7 @@ int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* r
 	return rv;
 }
 
-//@return TRUE/FALSE for whether file is found
+/*@return TRUE/FALSE for whether file is found*/
 BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de, LPCSTR folder) {
 	BOOL rv;
 	DWORD numRead;
@@ -273,7 +274,7 @@ int compare(const void *str1, const void *str2) {
 	return _strnicmp(*((char**)str1), *((char**)str2), MAX_PATH);
 }
 
-//IMPORTANT make sure to keep updated
+/*IMPORTANT make sure to keep updated*/
 BOOL isError(int err) {
 	if (err == USER_ERROR) {
 		return TRUE;
@@ -290,10 +291,11 @@ BOOL isError(int err) {
 	return FALSE;
 }
 
-//TODO maybe change failure return value so it doesn't conflict with user error
-//TODO maybe don't read the whole file into memory at once?
-//writePath needs to be the full absolute path of the file
-//@return file size if file is found inside VP and written successfully; error otherwise
+/* TODO maybe change failure return value so it doesn't conflict with user error
+* TODO maybe don't read the whole file into memory at once?
+* writePath needs to be the full absolute path of the file
+* @return file size if file is found inside VP and written successfully; error otherwise
+*/
 int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	HANDLE writeHandle;
 	LPSTR writeFilePath = (LPSTR)_malloca(MAX_PATH);
@@ -333,8 +335,10 @@ int extractFileFromVP(HANDLE vpHandle, direntry *de, LPCSTR *writeDirPath) {
 	else return WRITEFILE_ERROR;
 }
 
-//When this function is called, buf should contain the pof file
-//TODO figure out whether there can be multiple texture sections in the file (probably not)
+/*
+* When this function is called, buf should contain the pof file
+* TODO figure out whether there can be multiple texture sections in the file (probably not)
+*/
 void getTextureNames(int size) {
 	//header is 8 bytes large
 	DWORD offset = 8;
