@@ -8,7 +8,6 @@ maybe put behind a switch though to speed it up
 also can check for the desired file at the same time
 TODO folder permissions
 TODO delete file if error
-TODO convert isFileType to use pointers
 TODO remove limit on textures and VP files
 */
 
@@ -86,12 +85,12 @@ int main(int argc, char* argv[]) {
 	storeVPNames(&readFolderPath);
 	qsort(vpNames, numVPs, sizeof(char*), compare);
 
-	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath, "models");
+	rv = getFileFromVP(&writeFolderPath, &pofName, &readFolderPath, "models", 6);
 	/*TODO make sure file was found*/
 	if (!isError(rv)) {
 		getTextureNames(rv);
 		for (int i = 0; i < numTextures; i++) {
-			rv = getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath, "maps");
+			rv = getFileFromVP(&writeFolderPath, &(textureNames[i]), &readFolderPath, "maps", 4);
 			if (isError(rv)) {
 				break;
 			}
@@ -159,12 +158,12 @@ void storeVPNames(LPSTR *readPath) {
 * folder is the folder inside the VP where the file should be
 * @return file size if file is found and written; error otherwise
 */
-int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR folder) {
+int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR folder, int folderNameLen) {
 	direntry de;
 	int rv;
 
 	for (int i = 0; i < numVPs; i++) {
-		rv = processFile(writePath, filename, readPath, &vpNames[i], &de, folder);
+		rv = processFile(writePath, filename, readPath, &vpNames[i], &de, folder, folderNameLen);
 		if (isError(rv)) {
 			return rv;
 		}
@@ -177,7 +176,7 @@ int getFileFromVP(LPCSTR *writePath, LPCSTR *filename, LPSTR *readPath, LPCSTR f
 }
 
 /*@return file size if successful; error if failed; or WRONG_FILETYPE*/
-int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de, LPCSTR folder) {
+int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* readName, direntry* de, LPCSTR folder, int folderNameLen) {
 	HANDLE readHandle;
 	char readFilePath[MAX_PATH];
 	size_t len = strnlen_s(*readPath, MAX_PATH);
@@ -191,7 +190,7 @@ int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* r
 		rv = CREATEFILE_ERROR;
 	}
 	else {
-		if (getDirentry(readHandle, writeName, de, folder)) {
+		if (getDirentry(readHandle, writeName, de, folder, folderNameLen)) {
 			rv = extractFileFromVP(readHandle, de, writePath);
 			CloseHandle(readHandle);
 			return rv;
@@ -208,7 +207,7 @@ int processFile(LPCSTR *writePath, LPCSTR *writeName, LPSTR *readPath, LPCSTR* r
 }
 
 /*@return TRUE/FALSE for whether file is found*/
-BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de, LPCSTR folder) {
+BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de, LPCSTR folder, int folderNameLen) {
 	BOOL rv;
 	DWORD numRead;
 	DWORD totalRead = 0;
@@ -240,7 +239,7 @@ BOOL getDirentry(HANDLE readHandle, LPCSTR *filename, direntry *de, LPCSTR folde
 		}
 		memcpy_s(de, sizeof(direntry), buf + pos, sizeof(direntry));
 		if (de->size == 0) {
-			if (!_strnicmp(de->filename, folder, strnlen_s(folder, LONGEST_FSO_FOLDER_NAME))) {
+			if (!_strnicmp(de->filename, folder, folderNameLen)) {
 				insideFolder = TRUE;
 			}
 			else if (insideFolder && !_strnicmp(de->filename, "..", 2)) {
