@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2047
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.202
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ModelExtractor", "ModelExtractor\ModelExtractor.vcxproj", "{CA3B3A87-AC33-4B9E-8AF4-EEDFD3BF122A}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ModelExtractorInstallerx64", "ModelExtractorInstallerx64\ModelExtractorInstallerx64.vdproj", "{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ModelExtractorInstallerx86", "ModelExtractorInstallerx86\ModelExtractorInstallerx86.vdproj", "{28A49309-9CF7-447A-A6B5-7A63C1D351C3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +25,16 @@ Global
 		{CA3B3A87-AC33-4B9E-8AF4-EEDFD3BF122A}.Release|x64.Build.0 = Release|x64
 		{CA3B3A87-AC33-4B9E-8AF4-EEDFD3BF122A}.Release|x86.ActiveCfg = Release|Win32
 		{CA3B3A87-AC33-4B9E-8AF4-EEDFD3BF122A}.Release|x86.Build.0 = Release|Win32
+		{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}.Debug|x64.ActiveCfg = Debug
+		{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}.Debug|x86.ActiveCfg = Debug
+		{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}.Release|x64.ActiveCfg = Release
+		{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}.Release|x64.Build.0 = Release
+		{9E9A6AC7-A62B-46BA-9C5C-EA89CBAFD48A}.Release|x86.ActiveCfg = Release
+		{28A49309-9CF7-447A-A6B5-7A63C1D351C3}.Debug|x64.ActiveCfg = Debug
+		{28A49309-9CF7-447A-A6B5-7A63C1D351C3}.Debug|x86.ActiveCfg = Debug
+		{28A49309-9CF7-447A-A6B5-7A63C1D351C3}.Release|x64.ActiveCfg = Release
+		{28A49309-9CF7-447A-A6B5-7A63C1D351C3}.Release|x64.Build.0 = Release
+		{28A49309-9CF7-447A-A6B5-7A63C1D351C3}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
